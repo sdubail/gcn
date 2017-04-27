@@ -30,8 +30,10 @@ class Model(object):
         self.inputs = None
         self.outputs = None
 
+        self.depth= 0
         self.loss = 0
         self.accuracy = 0
+        self.auc = 0
         self.optimizer = None
         self.opt_op = None
 
@@ -51,7 +53,7 @@ class Model(object):
         self.outputs = self.activations[-1]
 
         # Store model variables for easy access
-        variables = tf.get_collection(tf.GraphKeys.VARIABLES, scope=self.name)
+        variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.name)
         self.vars = {var.name: var for var in variables}
 
         # Build metrics
@@ -158,6 +160,8 @@ class GCN(Model):
     def _accuracy(self):
         self.accuracy = masked_accuracy(self.outputs, self.placeholders['labels'],
                                         self.placeholders['labels_mask'])
+        self.auc = masked_auc(self.outputs, self.placeholders['labels'],
+                                        self.placeholders['labels_mask'])
 
     def _build(self):
 
@@ -178,3 +182,34 @@ class GCN(Model):
 
     def predict(self):
         return tf.nn.softmax(self.outputs)
+                
+        
+class Deep_GCN(GCN):
+    
+    def __init__(self, placeholders, input_dim, **kwargs):
+        super(Deep_GCN, self).__init__(placeholders, input_dim, **kwargs)
+        self.depth = placeholders['depth']
+        
+    def _build(self):
+
+        self.layers.append(GraphConvolution(input_dim=self.input_dim,
+                                            output_dim=FLAGS.hidden1,
+                                            placeholders=self.placeholders,
+                                            act=tf.nn.relu,
+                                            dropout=True,
+                                            sparse_inputs=True,
+                                            logging=self.logging))
+        for i in range(self.depth):
+            self.layers.append(GraphConvolution(input_dim=FLAGS.hidden1,
+                                                output_dim=FLAGS.hidden1,
+                                               placeholders=self.placeholders,
+                                                act=tf.nn.relu,
+                                                dropout=True,
+                                                logging=self.logging))
+
+        self.layers.append(GraphConvolution(input_dim=FLAGS.hidden1,
+                                            output_dim=self.output_dim,
+                                            placeholders=self.placeholders,
+                                            act=lambda x: x,
+                                            dropout=True,
+                                            logging=self.logging))
