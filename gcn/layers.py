@@ -35,6 +35,35 @@ def dot(x, y, sparse=False):
         res = tf.matmul(x, y)
     return res
 
+def batch_norm(x, n_out, phase_train, scope='bn'):
+    """
+    Batch normalization on convolutional maps.
+    Args:
+        x:           Tensor, 4D BHWD input maps
+        n_out:       integer, depth of input maps
+        phase_train: boolean tf.Varialbe, true indicates training phase
+        scope:       string, variable scope
+    Return:
+        normed:      batch-normalized maps
+    """
+    with tf.variable_scope(scope):
+        beta = tf.Variable(tf.constant(0.0, shape=[n_out]),
+                                     name='beta', trainable=True)
+        gamma = tf.Variable(tf.constant(1.0, shape=[n_out]),
+                                      name='gamma', trainable=True)
+        batch_mean, batch_var = tf.nn.moments(x, [0,1], name='moments')
+        ema = tf.train.ExponentialMovingAverage(decay=0.5)
+
+        def mean_var_with_update():
+            ema_apply_op = ema.apply([batch_mean, batch_var])
+            with tf.control_dependencies([ema_apply_op]):
+                return tf.identity(batch_mean), tf.identity(batch_var)
+
+        mean, var = tf.cond(phase_train,mean_var_with_update,
+                            lambda: (ema.average(batch_mean), ema.average(batch_var)))
+        normed = tf.nn.batch_normalization(x, mean, var, beta, gamma, 1e-3)
+    return normed
+
 
 class Layer(object):
     """Base layer class. Defines basic API for all layer objects.
@@ -71,15 +100,15 @@ class Layer(object):
     def __call__(self, inputs):
         with tf.name_scope(self.name):
             if self.logging and not self.sparse_inputs:
-                tf.histogram_summary(self.name + '/inputs', inputs)
+                tf.summary.histogram(self.name + '/inputs', inputs)
             outputs = self._call(inputs)
             if self.logging:
-                tf.histogram_summary(self.name + '/outputs', outputs)
+                tf.summary.histogram(self.name + '/outputs', outputs)
             return outputs
 
     def _log_vars(self):
         for var in self.vars:
-            tf.histogram_summary(self.name + '/vars/' + var, self.vars[var])
+            tf.summary.histogram(self.name + '/vars/' + var, self.vars[var])
 
 
 class Dense(Layer):
@@ -97,6 +126,8 @@ class Dense(Layer):
         self.sparse_inputs = sparse_inputs
         self.featureless = featureless
         self.bias = bias
+        self.output_dim = output_dim
+        self.phase_train = placeholders['phase_train']
 
         # helper variable for sparse dropout
         self.num_features_nonzero = placeholders['num_features_nonzero']
@@ -126,6 +157,13 @@ class Dense(Layer):
         if self.bias:
             output += self.vars['bias']
 
+        # mean, var = tf.nn.moments(output, [0, 1], name='moments')
+        # output = tf.nn.batch_normalization(output, mean, var, offset=None, scale=None, variance_epsilon=1e-5)
+
+        # output = tf.contrib.layers.batch_norm(inputs=output, decay=0.999, center=False, scale=False, epsilon=1e-3,
+        #                                       updates_collections=None,is_training=self.phase_train,reuse=False,
+        #                                       fused=False)
+
         return self.act(output)
 
 
@@ -143,9 +181,11 @@ class GraphConvolution(Layer):
 
         self.act = act
         self.support = placeholders['support']
+        self.phase_train = placeholders['phase_train']
         self.sparse_inputs = sparse_inputs
         self.featureless = featureless
         self.bias = bias
+        self.output_dim = output_dim
 
         # helper variable for sparse dropout
         self.num_features_nonzero = placeholders['num_features_nonzero']
@@ -181,8 +221,21 @@ class GraphConvolution(Layer):
             supports.append(support)
         output = tf.add_n(supports)
 
+        #mean, var = tf.nn.moments(output,[0)
+        #output = tf.nn.batch_normalization(output, mean, var)
+        
+        
         # bias
         if self.bias:
             output += self.vars['bias']
 
+        # output = tf.contrib.layers.batch_norm(inputs=output, decay=0.999, center=False, scale=False, epsilon=1e-3,
+        #                                       updates_collections=None,is_training=self.phase_train,reuse=False,
+        #                                       fused=False)
+
+        # mean, var = tf.nn.moments(output, [0, 1], name='moments')
+        # output = tf.nn.batch_normalization(output, mean, var, offset = None, scale = None, variance_epsilon=1e-5)
+
         return self.act(output)
+        
+        
