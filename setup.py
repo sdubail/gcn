@@ -12,8 +12,7 @@ setup(name='gcn',
       install_requires=['numpy',
                         'tensorflow',
                         'networkx',
-                        'sklearn',
                         'scipy'
                         ],
-      package_data={'gcn': ['README.md', 'gcn/data/']},
+      package_data={'gcn': ['README.md']},
       packages=find_packages())
