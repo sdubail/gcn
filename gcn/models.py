@@ -27,7 +27,6 @@ class Model(object):
         self.inputs = None
         self.outputs = None
 
-        self.depth= 0
         self.loss = 0
         self.accuracy = 0
         self.auc = 0
@@ -183,9 +182,9 @@ class GCN(Model):
         
 class Deep_GCN(GCN):
     
-    def __init__(self, placeholders, input_dim, **kwargs):
+    def __init__(self, placeholders, input_dim, depth, **kwargs):
+        self.depth = depth
         super(Deep_GCN, self).__init__(placeholders, input_dim, **kwargs)
-        self.depth = placeholders['depth']
         
     def _build(self):
 
@@ -196,6 +195,7 @@ class Deep_GCN(GCN):
                                             dropout=True,
                                             sparse_inputs=True,
                                             logging=self.logging))
+
         for i in range(self.depth):
             self.layers.append(GraphConvolution(input_dim=FLAGS.hidden1,
                                                 output_dim=FLAGS.hidden1,
