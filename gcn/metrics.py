@@ -21,11 +21,13 @@ def masked_accuracy(preds, labels, mask):
     return tf.reduce_mean(accuracy_all)
 
 def masked_auc(preds, labels, mask):
-
-    mask = tf.cast(mask, dtype=tf.float32)
-    mask /= tf.reduce_mean(mask)
-
-    auc = tf.contrib.metrics.streaming_auc(preds, labels)
-
-    return tf.reduce_mean(auc)
-
+    """AUC with masking."""
+    mask = tf.cast(mask, dtype=tf.bool)
+    
+    auc, update_op = tf.compat.v1.metrics.auc(
+        labels=labels,
+        predictions=preds,
+        weights=tf.cast(mask, tf.float32)
+    )
+    
+    return auc

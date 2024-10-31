@@ -1,7 +1,7 @@
 from gcn.inits import *
 import tensorflow as tf
 
-flags = tf.app.flags
+flags = tf.compat.v1.app.flags
 FLAGS = flags.FLAGS
 
 # global unique layer ID dictionary for layer name assignment
@@ -21,16 +21,16 @@ def get_layer_uid(layer_name=''):
 def sparse_dropout(x, keep_prob, noise_shape):
     """Dropout for sparse tensors."""
     random_tensor = keep_prob
-    random_tensor += tf.random_uniform(noise_shape)
+    random_tensor += tf.compat.v1.random_uniform(noise_shape)
     dropout_mask = tf.cast(tf.floor(random_tensor), dtype=tf.bool)
-    pre_out = tf.sparse_retain(x, dropout_mask)
+    pre_out = tf.compat.v1.sparse_retain(x, dropout_mask)
     return pre_out * (1./keep_prob)
 
 
 def dot(x, y, sparse=False):
     """Wrapper for tf.matmul (sparse vs dense)."""
     if sparse:
-        res = tf.sparse_tensor_dense_matmul(x, y)
+        res = tf.compat.v1.sparse_tensor_dense_matmul(x, y)
     else:
         res = tf.matmul(x, y)
     return res
@@ -46,7 +46,7 @@ def batch_norm(x, n_out, phase_train, scope='bn'):
     Return:
         normed:      batch-normalized maps
     """
-    with tf.variable_scope(scope):
+    with tf.compat.v1.variable_scope(scope):
         beta = tf.Variable(tf.constant(0.0, shape=[n_out]),
                                      name='beta', trainable=True)
         gamma = tf.Variable(tf.constant(1.0, shape=[n_out]),
@@ -132,7 +132,7 @@ class Dense(Layer):
         # helper variable for sparse dropout
         self.num_features_nonzero = placeholders['num_features_nonzero']
 
-        with tf.variable_scope(self.name + '_vars'):
+        with tf.compat.v1.variable_scope(self.name + '_vars'):
             self.vars['weights'] = glorot([input_dim, output_dim],
                                           name='weights')
             if self.bias:
@@ -160,7 +160,7 @@ class Dense(Layer):
         # mean, var = tf.nn.moments(output, [0, 1], name='moments')
         # output = tf.nn.batch_normalization(output, mean, var, offset=None, scale=None, variance_epsilon=1e-5)
 
-        # output = tf.contrib.layers.batch_norm(inputs=output, decay=0.999, center=False, scale=False, epsilon=1e-3,
+        # output = tf.compat.v1.contrib.layers.batch_norm(inputs=output, decay=0.999, center=False, scale=False, epsilon=1e-3,
         #                                       updates_collections=None,is_training=self.phase_train,reuse=False,
         #                                       fused=False)
 
@@ -190,7 +190,7 @@ class GraphConvolution(Layer):
         # helper variable for sparse dropout
         self.num_features_nonzero = placeholders['num_features_nonzero']
 
-        with tf.variable_scope(self.name + '_vars'):
+        with tf.compat.v1.variable_scope(self.name + '_vars'):
             for i in range(len(self.support)):
                 self.vars['weights_' + str(i)] = glorot([input_dim, output_dim],
                                                         name='weights_' + str(i))
@@ -229,7 +229,7 @@ class GraphConvolution(Layer):
         if self.bias:
             output += self.vars['bias']
 
-        # output = tf.contrib.layers.batch_norm(inputs=output, decay=0.999, center=False, scale=False, epsilon=1e-3,
+        # output = tf.compat.v1.contrib.layers.batch_norm(inputs=output, decay=0.999, center=False, scale=False, epsilon=1e-3,
         #                                       updates_collections=None,is_training=self.phase_train,reuse=False,
         #                                       fused=False)
 
@@ -237,5 +237,3 @@ class GraphConvolution(Layer):
         # output = tf.nn.batch_normalization(output, mean, var, offset = None, scale = None, variance_epsilon=1e-5)
 
         return self.act(output)
-        
-        
